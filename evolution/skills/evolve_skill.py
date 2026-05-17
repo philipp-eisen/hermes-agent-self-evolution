@@ -23,6 +23,7 @@ from evolution.core.dataset_builder import SyntheticDatasetBuilder, EvalDataset,
 from evolution.core.external_importers import build_dataset_from_external
 from evolution.core.fitness import skill_fitness_metric, LLMJudge, FitnessScore
 from evolution.core.constraints import ConstraintValidator
+from evolution.core.hermes_lm import create_lm
 from evolution.skills.skill_module import (
     SkillModule,
     load_skill,
@@ -119,7 +120,7 @@ def evolve(
     # ── 3. Validate constraints on baseline ─────────────────────────────
     console.print(f"\n[bold]Validating baseline constraints[/bold]")
     validator = ConstraintValidator(config)
-    baseline_constraints = validator.validate_all(skill["body"], "skill")
+    baseline_constraints = validator.validate_all(skill["raw"], "skill")
     all_pass = True
     for c in baseline_constraints:
         icon = "✓" if c.passed else "✗"
@@ -138,7 +139,7 @@ def evolve(
     console.print(f"  Eval model: {eval_model}")
 
     # Configure DSPy
-    lm = dspy.LM(eval_model)
+    lm = create_lm(eval_model)
     dspy.configure(lm=lm)
 
     # Create the baseline skill module
@@ -156,7 +157,8 @@ def evolve(
     try:
         optimizer = dspy.GEPA(
             metric=skill_fitness_metric,
-            max_steps=iterations,
+            max_metric_calls=max(1, iterations),
+            reflection_lm=lm,
         )
 
         optimized_module = optimizer.compile(
@@ -186,7 +188,7 @@ def evolve(
 
     # ── 7. Validate evolved skill ───────────────────────────────────────
     console.print(f"\n[bold]Validating evolved skill[/bold]")
-    evolved_constraints = validator.validate_all(evolved_body, "skill", baseline_text=skill["body"])
+    evolved_constraints = validator.validate_all(evolved_full, "skill", baseline_text=skill["raw"])
     all_pass = True
     for c in evolved_constraints:
         icon = "✓" if c.passed else "✗"

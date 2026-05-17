@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from evolution.core.config import EvolutionConfig
+from evolution.core.hermes_lm import create_lm
 
 
 @dataclass
@@ -72,7 +73,7 @@ class LLMJudge:
     ) -> FitnessScore:
         """Score an agent output using LLM-as-judge."""
 
-        lm = dspy.LM(self.config.eval_model)
+        lm = create_lm(self.config.eval_model)
 
         with dspy.context(lm=lm):
             result = self.judge(
