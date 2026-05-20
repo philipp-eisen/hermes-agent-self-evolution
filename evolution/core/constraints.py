@@ -37,7 +37,7 @@ class ConstraintValidator:
         results = []
 
         # 1. Size limits
-        results.append(self._check_size(artifact_text, artifact_type))
+        results.append(self._check_size(artifact_text, artifact_type, baseline_text))
 
         # 2. Growth limit (if baseline provided)
         if baseline_text:
@@ -92,7 +92,12 @@ class ConstraintValidator:
                 message=f"Failed to run tests: {e}",
             )
 
-    def _check_size(self, text: str, artifact_type: str) -> ConstraintResult:
+    def _check_size(
+        self,
+        text: str,
+        artifact_type: str,
+        baseline_text: Optional[str] = None,
+    ) -> ConstraintResult:
         size = len(text)
         if artifact_type == "skill":
             limit = self.config.max_skill_size
@@ -109,6 +114,29 @@ class ConstraintValidator:
                 constraint_name="size_limit",
                 message=f"Size OK: {size}/{limit} chars",
             )
+
+        baseline_size = len(baseline_text) if baseline_text else 0
+        if baseline_size > limit:
+            legacy_limit = int(baseline_size * (1 + self.config.max_prompt_growth))
+            if size <= legacy_limit:
+                return ConstraintResult(
+                    passed=True,
+                    constraint_name="size_limit",
+                    message=(
+                        f"Existing {artifact_type} already exceeds default cap; "
+                        f"size OK against legacy baseline: {size}/{legacy_limit} chars "
+                        f"(default {limit})"
+                    ),
+                )
+            return ConstraintResult(
+                passed=False,
+                constraint_name="size_limit",
+                message=(
+                    f"Size exceeded legacy baseline cap: {size}/{legacy_limit} chars "
+                    f"({size - legacy_limit} over; default {limit})"
+                ),
+            )
+
         else:
             return ConstraintResult(
                 passed=False,

@@ -21,6 +21,22 @@ class TestSizeConstraints:
         assert not result.passed
         assert "exceeded" in result.message
 
+    def test_oversized_existing_skill_can_stay_within_legacy_growth_cap(self, validator):
+        baseline = "x" * 45_000
+        evolved = "x" * 45_500
+        result = validator._check_size(evolved, "skill", baseline)
+
+        assert result.passed
+        assert "legacy baseline" in result.message
+
+    def test_oversized_existing_skill_cannot_grow_past_legacy_growth_cap(self, validator):
+        baseline = "x" * 45_000
+        evolved = "x" * 55_000
+        result = validator._check_size(evolved, "skill", baseline)
+
+        assert not result.passed
+        assert "legacy baseline cap" in result.message
+
     def test_tool_description_under_limit(self, validator):
         result = validator._check_size("Search files by content", "tool_description")
         assert result.passed

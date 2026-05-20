@@ -1,6 +1,9 @@
 """Tests for skill module loading and parsing."""
 
-from evolution.skills.skill_module import load_skill, reassemble_skill
+import inspect
+
+from evolution.skills.skill_module import SkillModule, load_skill, reassemble_skill
+from evolution.core.fitness import skill_fitness_metric
 
 
 SAMPLE_SKILL = """---
@@ -88,3 +91,33 @@ class TestReassembleSkill:
 
         assert "EVOLVED" in result
         assert "New and improved" in result
+
+
+class TestSkillModule:
+    def test_skill_text_is_gepa_optimizable_instruction(self):
+        skill_text = "# My Skill\nFollow this exact procedure."
+        module = SkillModule(skill_text)
+
+        seed_candidate = {
+            name: getattr(pred.signature, "instructions", None)
+            for name, pred in module.named_predictors()
+        }
+
+        fields = module.dump_state()["predictor.predict"]["signature"]["fields"]
+        assert seed_candidate == {"predictor.predict": skill_text}
+        assert all("skill_instructions" not in field["prefix"].lower() for field in fields)
+
+    def test_get_skill_text_reads_evolved_signature_instruction(self):
+        module = SkillModule("original skill")
+        evolved = "evolved skill instructions"
+        signature = module.predictor.predict.signature
+        assert signature is not None
+        module.predictor.predict.signature = signature.with_instructions(evolved)
+
+        assert module.get_skill_text() == evolved
+
+
+class TestSkillFitnessMetric:
+    def test_accepts_gepa_five_argument_signature(self):
+        sig = inspect.signature(skill_fitness_metric)
+        sig.bind(None, None, None, None, None)

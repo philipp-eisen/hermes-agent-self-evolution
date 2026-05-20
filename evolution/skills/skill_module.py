@@ -91,25 +91,30 @@ class SkillModule(dspy.Module):
     """
 
     class TaskWithSkill(dspy.Signature):
-        """Complete a task following the provided skill instructions.
-
-        You are an AI agent following specific skill instructions to complete a task.
-        Read the skill instructions carefully and follow the procedure described.
-        """
-        skill_instructions: str = dspy.InputField(desc="The skill instructions to follow")
+        """Complete a task following the skill instructions."""
         task_input: str = dspy.InputField(desc="The task to complete")
         output: str = dspy.OutputField(desc="Your response following the skill instructions")
 
     def __init__(self, skill_text: str):
         super().__init__()
         self.skill_text = skill_text
-        self.predictor = dspy.ChainOfThought(self.TaskWithSkill)
+        # GEPA optimizes predictor signature instructions, not arbitrary Python
+        # attributes or runtime input fields. Put the skill body directly in the
+        # optimizable signature instructions so reflected candidates can mutate
+        # it and so the optimized module carries the evolved skill text.
+        signature = self.TaskWithSkill.with_instructions(skill_text)
+        self.predictor = dspy.ChainOfThought(signature)
+
+    def get_skill_text(self) -> str:
+        """Return the current/evolved skill body from the DSPy signature."""
+        try:
+            signature = self.predictor.predict.signature
+            return str(getattr(signature, "instructions", self.skill_text))
+        except AttributeError:
+            return self.skill_text
 
     def forward(self, task_input: str) -> dspy.Prediction:
-        result = self.predictor(
-            skill_instructions=self.skill_text,
-            task_input=task_input,
-        )
+        result = self.predictor(task_input=task_input)
         return dspy.Prediction(output=result.output)
 
 

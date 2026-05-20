@@ -182,7 +182,7 @@ def evolve(
 
     # ── 6. Extract evolved skill text ───────────────────────────────────
     # The optimized module's instructions contain the evolved skill text
-    evolved_body = optimized_module.skill_text
+    evolved_body = str(optimized_module.get_skill_text())
     evolved_full = reassemble_skill(skill["frontmatter"], evolved_body)
 
     # ── 7. Validate evolved skill ───────────────────────────────────────
